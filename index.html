@@ -1,0 +1,668 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="아내가 국민연금 임의가입·추납을 할 때 유족연금과 비교해 평생 얼마나 유리한지 계산합니다.">
+<title>아내 추납 손익 계산기</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=Nanum+Myeongjo:wght@700;800&display=swap">
+<style>
+:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0;font-size:14px}
+img{max-width:100%}
+[hidden]{display:none!important}
+</style>
+<style>
+/* Layout: 왼쪽 입력 패널 + 오른쪽 결과(요약 → 시나리오 비교 → 사망 시점별 차트 → 타임라인 → 가정) */
+:root{
+  --bg:#f5f6f8; --surface:#ffffff; --line:#dfe3ea; --fg:#1d2430; --muted:#5f6b7c;
+  --accent:#3046a8; --accent-soft:#e6eafa; --mid:#7d8aa6; --amber:#b86b12; --amber-soft:#fbf0e1;
+  --good:#1f7a4d; --bad:#b4372f;
+  --f-display:"Nanum Myeongjo","Noto Serif KR",serif;
+  --f-body:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#12151b; --surface:#1a1f28; --line:#2c3341; --fg:#e7eaf0; --muted:#9aa5b8;
+  --accent:#8fa2f2; --accent-soft:#232c4d; --mid:#8793ab; --amber:#e6a456; --amber-soft:#3a2b18;
+  --good:#5cc48f; --bad:#ef7d74; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#12151b; --surface:#1a1f28; --line:#2c3341; --fg:#e7eaf0; --muted:#9aa5b8;
+  --accent:#8fa2f2; --accent-soft:#232c4d; --mid:#8793ab; --amber:#e6a456; --amber-soft:#3a2b18;
+  --good:#5cc48f; --bad:#ef7d74; color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.55}
+.wrap{max-width:1180px;margin:0 auto;padding-block:28px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header h1{font-family:var(--f-display);font-size:clamp(24px,3.4vw,34px);margin:0 0 6px;text-wrap:balance;letter-spacing:-.01em}
+header p{margin:0;color:var(--muted);max-width:66ch}
+.grid{display:grid;grid-template-columns:330px minmax(0,1fr);gap:24px;margin-top:24px;align-items:start}
+@media (max-width:880px){.grid{grid-template-columns:1fr}}
+.formcol{display:grid;gap:14px;align-content:start;min-width:0}
+.sec{margin:0 0 14px;font-size:13px;font-weight:700;color:var(--fg);letter-spacing:.02em}
+.sec-gap{margin:18px 0 -2px;padding-top:18px;border-top:2px solid var(--line);font-size:14px}
+.explain{background:var(--bg);border-radius:8px;padding:12px 14px;margin:0 0 16px;font-size:13px;line-height:1.6}
+.explain p{margin:0 0 6px}
+.explain ul{margin:0;padding-left:18px;display:grid;gap:3px;color:var(--muted)}
+.explain b{color:var(--fg);font-weight:600}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px}
+.panel h2{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 12px;font-weight:600}
+.group+ .group{margin-top:20px;padding-top:18px;border-top:1px solid var(--line)}
+.field{display:grid;gap:4px;margin-bottom:14px}
+.field:last-child{margin-bottom:0}
+.field label{display:flex;justify-content:space-between;gap:8px;font-size:13.5px;font-weight:500}
+.field label output{font-variant-numeric:tabular-nums;color:var(--accent);font-weight:600;white-space:nowrap}
+.field small{color:var(--muted);font-size:12px}
+input[type=range]{width:100%;accent-color:var(--accent)}
+select{font:inherit;font-size:14px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--fg)}
+input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.results{display:grid;gap:20px;min-width:0}
+.field label{align-items:center}
+.numwrap{display:inline-flex;align-items:center;gap:4px;font-weight:500;color:var(--muted);font-size:13px}
+.numwrap input{width:78px;font:inherit;font-size:15px;font-weight:600;color:var(--accent);text-align:right;font-variant-numeric:tabular-nums;padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:var(--bg)}
+.numwrap input:focus{border-color:var(--accent);background:var(--surface)}
+.hint{color:var(--muted);font-size:12px}
+input[type=range].unset{opacity:.35}
+.numwrap input::placeholder{color:var(--muted);font-weight:400;font-size:12.5px;opacity:.8}
+.calc{background:var(--accent-soft);border-radius:8px;padding:10px 12px;font-size:13px;display:grid;gap:3px;margin:-2px 0 10px}
+.calc b{font-size:16px;color:var(--accent);font-variant-numeric:tabular-nums}
+.calc span{color:var(--muted)}
+.chk{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);margin-bottom:14px;cursor:pointer}
+.chk input{accent-color:var(--accent)}
+.hero{background:var(--accent-soft);border-radius:12px;padding:20px 22px}
+.hero .k{font-size:13px;color:var(--muted);font-weight:500}
+.hero .big{font-family:var(--f-display);font-size:clamp(28px,4.4vw,42px);font-weight:800;margin:4px 0 6px;font-variant-numeric:tabular-nums;color:var(--accent)}
+.hero p{margin:0;max-width:70ch}
+.cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+@media (max-width:700px){.cards{grid-template-columns:1fr}}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;display:grid;gap:10px;align-content:start}
+.card.sel{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.card h3{margin:0;font-size:15px;display:flex;align-items:center;gap:8px}
+.dot{width:10px;height:10px;border-radius:50%;flex:none}
+.rows{display:grid;gap:6px;margin:0}
+.rows div{display:flex;justify-content:space-between;gap:10px;font-size:13.5px}
+.rows dt{color:var(--muted)}
+.rows dd{margin:0;font-variant-numeric:tabular-nums;font-weight:500;text-align:right}
+.net{border-top:1px solid var(--line);padding-top:10px;display:flex;justify-content:space-between;align-items:baseline}
+.net span{font-size:13px;color:var(--muted)}
+.net strong{font-size:20px;font-variant-numeric:tabular-nums}
+.pos{color:var(--good)} .neg{color:var(--bad)}
+.pill{display:inline-block;font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:99px;background:var(--amber-soft);color:var(--amber)}
+.pill.own{background:var(--accent-soft);color:var(--accent)}
+.box{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px}
+.box h2{font-size:16px;margin:0 0 4px}
+.box .sub{margin:0 0 12px;color:var(--muted);font-size:13.5px}
+.chartwrap{overflow-x:auto}
+svg text{font-family:var(--f-body)}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:13px;color:var(--muted);margin-top:8px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.tl{display:grid;gap:10px}
+.tlrow{display:grid;grid-template-columns:64px minmax(0,1fr);gap:10px;align-items:center;font-size:13px}
+.track{position:relative;height:26px;background:var(--bg);border-radius:6px;overflow:hidden}
+.seg{position:absolute;top:0;bottom:0;display:flex;align-items:center;padding:0 8px;font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;color:#fff}
+.axis{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted);margin-left:74px;font-variant-numeric:tabular-nums}
+.guide{margin:0 0 14px;padding-left:20px;display:grid;gap:8px;max-width:72ch}
+.guide b{font-weight:600}
+.tablewrap{overflow-x:auto}
+.mult{border-collapse:collapse;width:100%;min-width:380px;font-size:13.5px;font-variant-numeric:tabular-nums}
+.mult th,.mult td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line)}
+.mult th{font-size:12px;color:var(--muted);font-weight:600}
+.mult td:nth-child(2){color:var(--accent);font-weight:600}
+.notes{font-size:13px;color:var(--muted);margin:0;padding-left:18px;display:grid;gap:4px}
+@media (prefers-reduced-motion:no-preference){.seg{transition:left .25s,width .25s}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>아내 추납, 유족연금보다 얼마나 유리할까</h1>
+    <p>남편이 언제 사망하느냐에 따라 아내가 평생 더 받는 돈이 달라집니다. 아무것도 안 할 때, 임의가입만 할 때, 임의가입에 추납까지 할 때를 현재가치(만 원)로 비교합니다.</p>
+  </header>
+
+  <div class="grid">
+    <form class="formcol" id="f" onsubmit="return false">
+    <div class="panel">
+      <p class="sec">지금까지의 기록</p>
+      <div class="group">
+        <h2>남편</h2>
+        <div class="field">
+          <label for="hb">출생연도 <span class="numwrap"><input type="number" inputmode="numeric" id="hb" min="1950" max="2000" step="1" value="" placeholder="예: 1970"><span>년</span></span></label>
+          <small class="hint" id="hb_h"></small>
+        </div>
+        <div class="field">
+          <label for="hp">노령연금 월액 <output id="hp_o"></output></label>
+          <input type="range" id="hp" min="100" max="260" step="5" value="100">
+          <small>공단 '예상연금 조회'의 금액을 넣으세요. 60세까지 계속 낸다고 가정한 금액이 나옵니다.</small>
+        </div>
+        <div class="field">
+          <label for="hs">납부 시작 연도 <span class="numwrap"><input type="number" inputmode="numeric" id="hs" min="1988" max="2026" step="1" value="" placeholder="예: 2000"><span>년</span></span></label>
+        </div>
+        <div class="field">
+          <label for="hm">지금까지 납부 개월 수 <span class="numwrap"><input type="number" inputmode="numeric" id="hm" min="1" max="600" step="1" value="" placeholder="예: 240"><span>개월</span></span></label>
+          <small>공단 가입내역의 가입기간. 27년이면 324개월입니다.</small>
+        </div>
+        <label class="chk"><input type="checkbox" id="hcont" checked> 지금도 납부 중 (60세까지 계속 낸다고 가정)</label>
+        <div class="calc" id="hCalc" aria-live="polite"></div>
+        <div class="field">
+          <label for="hd">사망 나이 가정 <output id="hd_o"></output></label>
+          <input type="range" id="hd" min="66" max="100" step="1" value="66">
+          <small>차트에서 66~100세 전체 결과를 같이 보여줍니다.</small>
+        </div>
+      </div>
+
+      <div class="group">
+        <h2>아내</h2>
+        <div class="field">
+          <label for="wb">출생연도 <span class="numwrap"><input type="number" inputmode="numeric" id="wb" min="1950" max="2000" step="1" value="" placeholder="예: 1975"><span>년</span></span></label>
+          <small class="hint" id="wb_h"></small>
+        </div>
+        <div class="field">
+          <label for="wl">기대수명 <output id="wl_o"></output></label>
+          <input type="range" id="wl" min="70" max="100" step="1" value="70">
+        </div>
+        <div class="field">
+          <label for="ca">본인 연금 받기 시작 <output id="ca_o"></output></label>
+          <input type="range" id="ca" min="55" max="70" step="1" value="55">
+          <small>정상 수령 나이보다 일찍 받으면 1년당 6% 감액, 늦추면 1년당 7.2% 가산</small>
+        </div>
+        <div class="field">
+          <label for="om">과거 납부 개월 수 <output id="om_o"></output></label>
+          <input type="range" id="om" min="1" max="240" step="1" value="1">
+          <small>공단 가입내역의 실제 납부 개월. 120개월 이상이면 이미 연금 수급권이 있습니다.</small>
+        </div>
+        <div class="field">
+          <label for="os">납부 시작 연도 <span class="numwrap"><input type="number" inputmode="numeric" id="os" min="1988" max="2025" step="1" value="" placeholder="예: 2005"><span>년</span></span></label>
+          <small>처음 국민연금을 낸 해. 정확히 몰라도 대략적인 연도면 됩니다.</small>
+        </div>
+        <div class="field">
+          <label for="omode">과거 소득 입력 방식</label>
+          <select id="omode">
+            <option value="total" selected>공단 조회 납부총액으로 (추천)</option>
+            <option value="wage">당시 월급으로</option>
+          </select>
+        </div>
+        <div id="totbox">
+          <div class="field">
+            <label for="ot">납부총액 <span class="numwrap"><input type="number" inputmode="decimal" id="ot" min="1" max="20000" step="0.1" value="" placeholder="예: 500"><span>만 원</span></span></label>
+            <small>'내 곁에 국민연금' 앱 또는 공단 홈페이지 › 가입내역 조회에 나오는 연금보험료 납부 합계</small>
+          </div>
+          <div class="field">
+            <label for="oshare">조회된 금액의 범위</label>
+            <select id="oshare">
+              <option value="all" selected>회사 부담분 포함 전체 금액</option>
+              <option value="self">본인 부담분만 (급여에서 뗀 금액)</option>
+            </select>
+            <small>직장가입자는 보험료를 회사와 반씩 냅니다. 모르면 공단에 표시된 그대로 '전체'를 고르세요.</small>
+          </div>
+        </div>
+        <div class="field" id="owbox" hidden>
+          <label for="ow">당시 세전 월급 <span class="numwrap"><input type="number" inputmode="numeric" id="ow" min="10" max="2000" step="1" value="" placeholder="예: 200"><span>만 원</span></span></label>
+          <small>그때 받던 월급(연봉 ÷ 12, 세금 떼기 전). 여러 번 바뀌었으면 평균값.</small>
+        </div>
+        <div class="calc" id="pastCalc" aria-live="polite"></div>
+      </div>
+    </div>
+
+    <p class="sec sec-gap">아내가 앞으로 할 선택</p>
+
+    <div class="panel">
+      <div class="group">
+        <h2>임의가입</h2>
+        <div class="explain">
+          <p><b>소득이 없어도 스스로 국민연금에 가입하는 제도</b>입니다. 전업주부처럼 의무 가입 대상이 아닌 사람이 신청합니다.</p>
+          <ul>
+            <li>지금부터 60세까지 <b>매달</b> 보험료를 냅니다.</li>
+            <li>낸 기간이 가입기간에 더해지고, 합쳐서 10년(120개월)이 넘으면 평생 연금을 받습니다.</li>
+            <li>추납을 하려면 먼저 임의가입이 되어 있어야 합니다.</li>
+          </ul>
+        </div>
+        <div class="field">
+          <label for="vb">임의가입 보험료 기준액 <output id="vb_o"></output></label>
+          <input type="range" id="vb" min="100" max="637" step="10" value="100">
+          <small id="vb_note">임의가입시 한번에 낼 보험료를 산정하기 위한 가상의 월 소득 기준액 입니다. 최저 금액은 100만원 입니다.</small>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="group">
+        <h2>추납 (추후납부)</h2>
+        <div class="explain">
+          <p><b>예전에 못 낸 기간의 보험료를 지금 몰아서 내고, 그 기간을 가입기간으로 인정받는 제도</b>입니다. 직장을 그만둔 뒤 비어 있던 기간을 채웁니다.</p>
+          <ul>
+            <li>최대 119개월(9년 11개월)까지 채울 수 있습니다.</li>
+            <li>한 번에 내거나, 최대 60회까지 나눠 낼 수 있습니다(나누면 이자가 붙음).</li>
+            <li>보험료율이 매년 올라서, 일찍 낼수록 같은 기간을 더 싸게 채웁니다.</li>
+          </ul>
+        </div>
+        <div class="field">
+          <label for="cm">추납 개월 수 <output id="cm_o"></output></label>
+          <input type="range" id="cm" min="0" max="119" step="1" value="0">
+        </div>
+        <div class="field">
+          <label for="cb">추납 보험료 기준액 <output id="cb_o"></output></label>
+          <input type="range" id="cb" min="100" max="637" step="10" value="100">
+          <small id="cb_note">추납시 한번에 낼 보험료를 산정하기 위한 가상의 월 소득 기준액 입니다. 최저 금액은 100만원 입니다.</small>
+        </div>
+        <div class="field">
+          <label for="cy">추납 납부 시점</label>
+          <select id="cy">
+            <option value="2026" selected>2026년 (보험료율 9.5%)</option>
+            <option value="2027">2027년 (10.0%)</option>
+            <option value="2028">2028년 (10.5%)</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    </form>
+
+    <div class="results">
+      <section class="hero" aria-live="polite">
+        <div class="k">추납을 하면 임의가입만 할 때보다</div>
+        <div class="big" id="heroBig">–</div>
+        <p id="heroText"></p>
+      </section>
+
+      <div class="cards" id="cards"></div>
+
+      <section class="box">
+        <h2>남편 사망 나이별 아내의 순이익</h2>
+        <p class="sub">평생 더 받는 연금에서 낸 보험료와 포기한 반환일시금을 뺀 금액입니다. 0 위로 올라가는 지점이 손익분기입니다.</p>
+        <div class="chartwrap"><svg id="chart" viewBox="0 0 760 300" width="100%" role="img" aria-label="남편 사망 나이별 순이익 차트"></svg></div>
+        <div class="legend">
+          <span><i class="dot" style="background:var(--accent)"></i>임의가입 + 추납</span>
+          <span><i class="dot" style="background:var(--mid)"></i>임의가입만</span>
+          <span><i class="dot" style="background:var(--amber)"></i>선택한 사망 나이</span>
+        </div>
+      </section>
+
+      <section class="box">
+        <h2>타임라인</h2>
+        <p class="sub" id="tlSub"></p>
+        <div class="tl" id="tl"></div>
+      </section>
+
+      <section class="box">
+        <h2>계산 방식과 가정</h2>
+        <ul class="notes">
+          <li>금액은 모두 현재가치입니다. 국민연금은 물가에 연동되므로 할인하지 않았습니다.</li>
+          <li>아내 본인 연금은 소득대체율로 근사했습니다. 과거 납부 기간은 연도별 소득대체율을, 이후 임의가입·추납 기간은 43%를 적용합니다. A값(전체 가입자 평균소득)은 2026년 기준 약 319만 원입니다.</li>
+          <li>연금 수령 나이는 출생연도로 정합니다(1961~64년생 63세, 1965~68년생 64세, 1969년생 이후 65세, 1957~60년생 62세 이하). 임의가입은 2026년 말부터 아내가 60세가 될 때까지 납부하는 것으로 계산하고, 이미 60세가 넘었으면 0개월입니다.</li>
+          <li>유족연금 지급률은 남편의 사망 시 가입기간으로 자동 결정합니다(10년 미만 40%, 10~20년 50%, 20년 이상 60%). 유족연금은 남편 연금 × 지급률 + 배우자 부양가족연금(월 약 2.6만 원)입니다. 남편이 받던 노령연금액을 넘지 않습니다.</li>
+          <li>남편 사후 아내는 "본인 연금 + 유족연금 30%"와 "유족연금 전액" 중 큰 쪽을 고른다고 봅니다.</li>
+          <li>유족연금 자체는 세 시나리오 모두 똑같이 받으므로 비교에서는 빠집니다. 표의 "더 받는 금액"은 유족연금 위에 얹어지는 몫입니다.</li>
+          <li>과거 납부가 120개월 미만이고 아무것도 안 하면 60세에 반환일시금을 받습니다. 원금(소득 × 보험료율 × 개월 수)만 넣고 이자는 뺐습니다. 다른 두 시나리오는 이 돈을 포기하는 셈이라 비용에 넣었습니다. 이미 120개월 이상이면 반환일시금 대신 본인 연금이 기준선이 됩니다.</li>
+          <li>임의가입 보험료는 2026년 9.5%에서 매년 0.5%p씩 올라 2033년 13%로 계산했습니다.</li>
+          <li>추납 상한(119개월) 축소, 중복지급률 인상 등 제도 변경은 반영하지 않았습니다. 정확한 금액은 국민연금공단(1355)에서 확인하세요.</li>
+        </ul>
+      </section>
+
+      <section class="box">
+        <h2>과거 소득은 어떻게 계산되나요</h2>
+        <p class="sub">국민연금은 옛날 소득을 지금 가치로 다시 계산해서 연금을 정합니다. 계산기는 세 가지만 넣으면 이 과정을 자동으로 처리합니다.</p>
+        <ol class="guide">
+          <li><b>납부 시작 연도:</b> 처음 국민연금을 낸 해입니다. 첫 직장에 들어간 해를 넣으면 됩니다.</li>
+          <li><b>과거 납부 개월 수:</b> 실제로 낸 기간입니다. 3년 다녔으면 36개월입니다.</li>
+          <li><b>납부총액:</b> '내 곁에 국민연금' 앱이나 공단 홈페이지의 가입내역 조회에서 연금보험료 납부 합계를 그대로 넣으세요. 계산기가 총액 ÷ 개월 수 ÷ 그해 보험료율(1998년 이후 9%)로 당시 월급을 거꾸로 계산합니다. 예: 540만 원 ÷ 30개월 ÷ 9% = 월 200만 원. 조회가 어려우면 '당시 월급으로'를 골라 연봉 ÷ 12를 넣어도 됩니다.</li>
+        </ol>
+        <p class="sub">입력하면 계산기가 납부 기간의 연도별로 ① 당시 상한(2010년 이전 360만 원 등)을 적용하고, ② 2026년 평균소득 ÷ 그해 평균소득 배수를 곱해 현재가치로 바꾸고, ③ 그해의 소득대체율(1998년 이전 70%, 1999~2007년 60%, 2008년 50%에서 매년 0.5%p 하락)을 적용합니다. 반환일시금도 그해 보험료율(3·6·9%)로 계산합니다.</p>
+        <p class="sub">아래 표는 계산기가 쓰는 연도별 현재가치 배수를 대략 보여줍니다.</p>
+        <div class="tablewrap">
+          <table class="mult">
+            <thead><tr><th>납부 시기</th><th>현재가치 배수(약)</th><th>예: 당시 월 150만 원이면</th></tr></thead>
+            <tbody>
+              <tr><td>1995~1999년</td><td>2.8배</td><td>약 420만 원</td></tr>
+              <tr><td>2000~2004년</td><td>2.3배</td><td>약 345만 원</td></tr>
+              <tr><td>2005~2009년</td><td>1.9배</td><td>약 285만 원</td></tr>
+              <tr><td>2010~2014년</td><td>1.7배</td><td>약 255만 원</td></tr>
+              <tr><td>2015~2019년</td><td>1.45배</td><td>약 218만 원</td></tr>
+              <tr><td>2020~2022년</td><td>1.25배</td><td>약 188만 원</td></tr>
+              <tr><td>2023~2025년</td><td>1.07배</td><td>약 160만 원</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="sub" style="margin:12px 0 0">배수는 근사치라 결과도 대략적인 값입니다. 공단 예상연금 조회 결과와 계산기의 '아무것도 안 함' 기준을 비교해 보면 입력값이 맞는지 가늠할 수 있습니다.</p>
+      </section>
+
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const A = 319.35;           // A값(만원, 2026)
+  const DEP = 30.663/12;      // 배우자 부양가족연금 월액(만원)
+  // 연도별 A값(전체 가입자 평균소득월액, 만원). 2010년 이후는 공시값, 그 이전은 근사치
+  const A_PTS = [[1988,36],[1992,62],[1995,95],[1998,117],[2000,125],[2003,147],[2005,157],[2008,170],[2010,179.2],[2011,183.7],[2012,189.2],[2013,193.5],[2014,198.1],[2015,204.5],[2016,210.6],[2017,217.6],[2018,227.2],[2019,235.7],[2020,243.9],[2021,253.9],[2022,268.2],[2023,286.1],[2024,298.9],[2025,308.9],[2026,319.4]];
+  function aOf(y){
+    if (y <= A_PTS[0][0]) return A_PTS[0][1];
+    for (let i=1;i<A_PTS.length;i++){ const [y1,v1]=A_PTS[i-1],[y2,v2]=A_PTS[i]; if (y<=y2) return v1 + (v2-v1)*(y-y1)/(y2-y1); }
+    return A_PTS[A_PTS.length-1][1];
+  }
+  // 기준소득월액 상한(만원)
+  const capOf = y => y < 1995 ? 200 : y < 2010 ? 360 : y < 2012 ? 375 : ({2012:389,2013:398,2014:408,2015:421,2016:434,2017:449,2018:468,2019:486,2020:503,2021:524,2022:553,2023:590,2024:617}[y] || 637);
+  // 그 해 가입기간에 적용되는 소득대체율, 보험료율
+  const replOf = y => y <= 1998 ? 0.70 : y <= 2007 ? 0.60 : y <= 2025 ? 0.50 - 0.005*(y-2008) : 0.43;
+  const prOf = y => y <= 1992 ? 0.03 : y <= 1997 ? 0.06 : 0.09;
+  function pastOf(start, months, wage){
+    let sumB=0, sumR=0, sumRB=0, sumP=0, capped=false;
+    for (let m=0; m<months; m++){
+      const y = Math.min(2025, start + Math.floor(m/12));
+      const cap = capOf(y);
+      if (wage > cap) capped = true;
+      const Bnow = Math.min(wage, cap) * A / aOf(y);
+      sumB += Bnow; sumR += replOf(y); sumRB += replOf(y) * (A + Bnow)/2; sumP += prOf(y) * Bnow;
+    }
+    const n = Math.max(1, months);
+    return { Bnow: sumB/n, repl: sumR/n, part: sumRB/480, refundPerMonthAvg: sumP/n,
+             mult: A / aOf(start + (months/12)/2), endYear: start + Math.ceil(months/12) - 1, capped };
+  }
+  const normalAge = b => b >= 1969 ? 65 : b >= 1965 ? 64 : b >= 1961 ? 63 : b >= 1957 ? 62 : 61;
+  const volMonths = wb => Math.max(0, (wb + 60 - 2026) * 12);
+  const $ = id => document.getElementById(id);
+  const ids = ['hb','wb','hp','hs','hm','hd','wl','ca','om','os','ow','ot','vb','cm','cb','cy'];
+
+  const rateOf = y => Math.min(13, 9.5 + 0.5*Math.max(0, y-2026)) / 100;
+  function money(v){
+    const s = v < 0 ? '−' : '';
+    v = Math.round(Math.abs(v));
+    if (v >= 10000){
+      const e = Math.floor(v/10000), r = v % 10000;
+      return s + e + '억' + (r ? ' ' + r.toLocaleString('ko-KR') + '만' : '') + ' 원';
+    }
+    return s + v.toLocaleString('ko-KR') + '만 원';
+  }
+  const signed = v => (v >= 0 ? '+' : '') + money(v).replace('−','−');
+
+  // 슬라이더마다 직접 입력 칸을 붙인다 (입력 칸이 기준값)
+  const NUM = {
+    hp:{unit:'만 원',min:0,max:500,step:1,ph:'예: 150',label:'남편 노령연금 월액'}, hd:{unit:'세',min:46,max:110,step:1,ph:'예: 85',label:'남편 사망 나이'},
+    wl:{unit:'세',min:60,max:110,step:1,ph:'예: 90',label:'아내 기대수명'}, ca:{unit:'세',min:55,max:70,step:1,ph:'예: 65',label:'아내 연금 시작 나이'},
+    om:{unit:'개월',min:1,max:480,step:1,ph:'예: 36',label:'아내 과거 납부 개월 수'}, vb:{unit:'만 원',min:100,max:637,step:1,ph:'최저 100',label:'임의가입 보험료 기준액'},
+    cm:{unit:'개월',min:0,max:119,step:1,ph:'최대 119',label:'추납 개월 수'}, cb:{unit:'만 원',min:100,max:637,step:1,ph:'최저 100',label:'추납 보험료 기준액'}
+  };
+  const clamp = (v,a,b) => Math.min(b, Math.max(a, v));
+  Object.entries(NUM).forEach(([k,c]) => {
+    const out = $(k+'_o');
+    const wrap = document.createElement('span');
+    wrap.className = 'numwrap';
+    wrap.innerHTML = `<input type="number" inputmode="decimal" id="${k}_n" min="${c.min}" max="${c.max}" step="${c.step}" value="" placeholder="${c.ph}" aria-label="${out.parentElement.firstChild.textContent.trim()} 직접 입력"><span>${c.unit}</span>`;
+    out.replaceWith(wrap);
+    const hint = document.createElement('small');
+    hint.className = 'hint'; hint.id = k+'_h';
+    $(k).insertAdjacentElement('afterend', hint);
+    const num = $(k+'_n'), rng = $(k);
+    rng.classList.add('unset');
+    rng.addEventListener('input', () => { num.value = rng.value; render(); });
+    num.addEventListener('input', () => {
+      const v = parseFloat(num.value);
+      if (!isNaN(v)) rng.value = clamp(v, +rng.min, +rng.max);
+      render();
+    });
+    num.addEventListener('change', () => {
+      const v = parseFloat(num.value);
+      if (!isNaN(v)) { num.value = clamp(v, c.min, c.max); rng.value = clamp(+num.value, +rng.min, +rng.max); }
+      render();
+    });
+  });
+
+  const PLAIN = {
+    hb:{min:1950,max:2000,label:'남편 출생연도',year:true}, hs:{min:1988,max:2026,label:'남편 납부 시작 연도',year:true},
+    hm:{min:1,max:600,label:'남편 납부 개월 수'}, wb:{min:1950,max:2000,label:'아내 출생연도',year:true},
+    os:{min:1988,max:2025,label:'아내 납부 시작 연도',year:true}, ot:{min:0.1,max:20000,label:'아내 납부총액'},
+    ow:{min:10,max:2000,label:'아내 당시 월급'}
+  };
+  function read(){
+    const o = {}, missing = [];
+    ids.forEach(k => {
+      const box = $(k+'_n') || $(k);
+      let v = parseFloat(box.value);
+      const spec = NUM[k] || PLAIN[k];
+      if (spec && !isNaN(v)){
+        if (spec.year) { v = Math.round(v); if (v < spec.min || v > spec.max) v = NaN; }
+        else v = clamp(v, spec.min, spec.max);
+      }
+      o[k] = v;
+    });
+    o.omode = $('omode').value;
+    const need = ['hb','hp','hs','hm','hd','wb','wl','ca','om','os','vb','cm','cb'];
+    need.push(o.omode === 'total' ? 'ot' : 'ow');
+    need.forEach(k => { if (isNaN(o[k])) missing.push((NUM[k] || PLAIN[k]).label); });
+    o.missing = missing;
+    // 남편 가입기간 → 유족연금 지급률 (10년 미만 40%, 10~20년 50%, 20년 이상 60%)
+    o.hcont = $('hcont').checked;
+    o.hAdd = o.hcont ? Math.max(0, (o.hb + 60 - 2026) * 12 - 10) : 0;
+    o.hTotal = o.hm + o.hAdd;
+    o.srate = o.hTotal >= 240 ? 0.6 : o.hTotal >= 120 ? 0.5 : 0.4;
+    o.oshare = $('oshare').value;
+    // 납부총액 → 당시 월급 역산: 총액 ÷ Σ(그해 보험료율)
+    o.rateSum = 0;
+    for (let m=0; m<o.om; m++) o.rateSum += prOf(Math.min(2025, o.os + Math.floor(m/12)));
+    o.wageEst = (o.ot * (o.oshare === 'self' ? 2 : 1)) / Math.max(1e-9, o.rateSum);
+    if (o.omode === 'total' && !isNaN(o.wageEst)) o.ow = o.wageEst;
+    return o;
+  }
+
+  function model(p, hdOverride){
+    const hd = hdOverride ?? p.hd;
+    const S = Math.min(p.hp, p.hp*p.srate + DEP);
+    const N = normalAge(p.wb);
+    const factor = p.ca < N ? Math.max(0.7, 1 - 0.06*(N - p.ca)) : 1 + 0.072*Math.min(5, p.ca - N);
+    const VOL_MONTHS = volMonths(p.wb);
+    const past = pastOf(p.os, p.om, p.ow);
+    const Bpast = past.Bnow;
+    const oldPart = past.part;
+    const volPart = 0.43 * (A + p.vb)/2 * VOL_MONTHS/480;
+    const chuPart = 0.43 * (A + p.cb)/2 * p.cm/480;
+
+    let volCost = 0;
+    for (let m=0; m<VOL_MONTHS; m++){ volCost += p.vb * rateOf(2026 + Math.floor((m+10)/12)); }
+    const chuCost = p.cb * rateOf(p.cy) * p.cm;
+    // 이미 120개월 이상이면 반환일시금 대신 연금 수급권이 있음
+    const vested = p.om >= 120;
+    const refund = vested ? 0 : past.refundPerMonthAvg * p.om;
+    const baseX = vested ? oldPart : 0;
+
+    const Ws = p.wb + p.ca, Wd = p.wb + p.wl, Hd = p.hb + hd;
+    const joint = Math.max(0, Math.min(Hd, Wd) - Ws);
+    const widow = Math.max(0, Wd - Math.max(Hd, Ws));
+
+    const jointOf = Xe => Xe*12*joint;
+    const widowOf = Xe => Math.max(0, Xe - 0.7*S)*12*widow;
+    const baseXe = baseX * factor;
+
+    function scen(X, cost){
+      const Xe = X * factor;
+      const postPick = Xe + 0.3*S > S ? 'own' : 'surv';
+      const jointGain = jointOf(Xe) - jointOf(baseXe);
+      const widowGain = widowOf(Xe) - widowOf(baseXe);
+      const gain = jointGain + widowGain;
+      return {X, Xe, cost, jointGain, widowGain, gain, postPick,
+              postMonthly: Math.max(S, Xe + 0.3*S), net: gain - cost - refund};
+    }
+    return {
+      S, factor, N, VOL_MONTHS, past, Bpast, joint, widow, Ws, Wd, Hd, refund, vested,
+      none: {X:baseX, Xe:baseXe, cost:0, gain:0, net:0, postMonthly:Math.max(S, baseXe + 0.3*S), postPick: baseXe + 0.3*S > S ? 'own' : 'surv'},
+      vol: scen(oldPart + volPart, volCost),
+      chu: scen(oldPart + volPart + chuPart, volCost + chuCost),
+      chuCost, threshold: 0.7*S
+    };
+  }
+
+  function card(title, color, s, m, kind, selected){
+    const pick = s.postPick === 'own'
+      ? '<span class="pill own">본인 연금 + 30%</span>'
+      : '<span class="pill">유족연금 선택</span>';
+    let rows;
+    if (kind === 'none'){
+      rows = `
+        <div><dt>본인 연금 월액</dt><dd>${m.vested ? money(s.Xe) : '없음'}</dd></div>
+        <div><dt>낼 보험료</dt><dd>0</dd></div>
+        <div><dt>60세 반환일시금</dt><dd>${m.vested ? '해당 없음' : money(m.refund)}</dd></div>
+        <div><dt>남편 사후 월 수령</dt><dd>${money(s.postMonthly)}</dd></div>
+        <div><dt>남편 사후 선택</dt><dd>${pick}</dd></div>`;
+    } else {
+      rows = `
+        <div><dt>본인 연금 월액${m.factor<1?' (감액 후)':''}</dt><dd>${money(s.Xe)}</dd></div>
+        <div><dt>함께 받는 기간에 더 받음</dt><dd>${money(s.jointGain)}</dd></div>
+        <div><dt>남편 사후에 더 받음</dt><dd>${money(s.widowGain)}</dd></div>
+        <div><dt>낼 보험료 (차감)</dt><dd>−${money(s.cost)}</dd></div>
+        ${m.vested ? '' : `<div><dt>포기한 반환일시금 (차감)</dt><dd>−${money(m.refund)}</dd></div>`}
+        <div><dt>남편 사후 월 수령</dt><dd>${money(s.postMonthly)}</dd></div>
+        <div><dt>남편 사후 선택</dt><dd>${pick}</dd></div>`;
+    }
+    const netLabel = kind === 'none' ? '기준선' : '순이익 (반환일시금 포기 반영)';
+    const netVal = kind === 'none' ? '0' : signed(s.net);
+    const cls = kind === 'none' ? '' : (s.net >= 0 ? 'pos' : 'neg');
+    return `<article class="card${selected?' sel':''}">
+      <h3><i class="dot" style="background:${color}"></i>${title}</h3>
+      <dl class="rows">${rows}</dl>
+      <div class="net"><span>${netLabel}</span><strong class="${cls}">${netVal}</strong></div>
+    </article>`;
+  }
+
+  function breakeven(p, key){
+    for (let a=66; a<=100; a+=0.1){ if (model(p, a)[key].net >= 0) return a; }
+    return null;
+  }
+
+  function drawChart(p){
+    const svg = $('chart');
+    const W=760,H=300,L=74,R=16,T=16,B=36;
+    const xs=[], v1=[], v2=[];
+    for (let a=66; a<=100; a++){ const m=model(p,a); xs.push(a); v1.push(m.chu.net); v2.push(m.vol.net); }
+    let lo=Math.min(0,...v1,...v2), hi=Math.max(0,...v1,...v2);
+    const pad=(hi-lo)*0.08||100; lo-=pad; hi+=pad;
+    const step = niceStep((hi-lo)/5);
+    lo = Math.floor(lo/step)*step; hi = Math.ceil(hi/step)*step;
+    const X = a => L + (a-66)/(100-66)*(W-L-R);
+    const Y = v => T + (hi-v)/(hi-lo)*(H-T-B);
+    let g='';
+    for (let v=lo; v<=hi+1e-6; v+=step){
+      const y=Y(v);
+      g+=`<line x1="${L}" x2="${W-R}" y1="${y}" y2="${y}" stroke="var(--line)" stroke-width="1"/>`;
+      g+=`<text x="${L-8}" y="${y+4}" text-anchor="end" font-size="11" fill="var(--muted)">${axisMoney(v)}</text>`;
+    }
+    for (let a=70; a<=100; a+=5){
+      g+=`<text x="${X(a)}" y="${H-12}" text-anchor="middle" font-size="11" fill="var(--muted)">${a}세</text>`;
+    }
+    g+=`<line x1="${L}" x2="${W-R}" y1="${Y(0)}" y2="${Y(0)}" stroke="var(--muted)" stroke-width="1.2"/>`;
+    const path = arr => arr.map((v,i)=>(i?'L':'M')+X(xs[i]).toFixed(1)+' '+Y(v).toFixed(1)).join(' ');
+    const area = `${path(v1)} L ${X(100)} ${Y(0)} L ${X(66)} ${Y(0)} Z`;
+    g+=`<path d="${area}" fill="var(--accent)" opacity=".08"/>`;
+    g+=`<path d="${path(v2)}" fill="none" stroke="var(--mid)" stroke-width="2" stroke-dasharray="5 4"/>`;
+    g+=`<path d="${path(v1)}" fill="none" stroke="var(--accent)" stroke-width="2.5"/>`;
+    const cur = model(p, clamp(p.hd, 66, 100));
+    const cx = X(clamp(p.hd, 66, 100));
+    g+=`<line x1="${cx}" x2="${cx}" y1="${T}" y2="${H-B}" stroke="var(--amber)" stroke-width="1.5" stroke-dasharray="3 3"/>`;
+    g+=`<circle cx="${cx}" cy="${Y(cur.chu.net)}" r="5" fill="var(--accent)" stroke="var(--surface)" stroke-width="2"/>`;
+    g+=`<circle cx="${cx}" cy="${Y(cur.vol.net)}" r="4" fill="var(--mid)" stroke="var(--surface)" stroke-width="2"/>`;
+    const tx = cx > W-170 ? cx-8 : cx+8, anchor = cx > W-170 ? 'end' : 'start';
+    g+=`<text x="${tx}" y="${T+12}" text-anchor="${anchor}" font-size="12" font-weight="600" fill="var(--amber)">${p.hd}세 사망 시</text>`;
+    svg.innerHTML = g;
+  }
+  function niceStep(raw){
+    const p = Math.pow(10, Math.floor(Math.log10(raw)));
+    const n = raw/p;
+    return (n<=1?1:n<=2?2:n<=5?5:10)*p;
+  }
+  function axisMoney(v){
+    if (Math.abs(v) >= 10000) return (v/10000).toFixed(Math.abs(v)%10000?1:0) + '억';
+    return Math.round(v).toLocaleString('ko-KR') + '만';
+  }
+
+  function drawTimeline(p, m){
+    const start=2026, end=Math.max(m.Wd, m.Hd)+1;
+    const pos = y => ((y-start)/(end-start)*100);
+    const seg = (a,b,color,label) => b>a ? `<div class="seg" style="left:${pos(a)}%;width:${pos(b)-pos(a)}%;background:${color}">${label}</div>` : '';
+    const hStart = p.hb + normalAge(p.hb);
+    const husband = seg(start, Math.min(hStart, m.Hd), 'var(--mid)', '납부·대기') + seg(hStart, m.Hd, '#4a5b7a', '노령연금');
+    const wifeUntil60 = p.wb + 60;
+    let wife = seg(start, wifeUntil60, 'var(--mid)', '임의가입 납부');
+    wife += seg(Math.max(m.Hd, start), Math.min(m.Ws, m.Wd), 'var(--amber)', '유족연금');
+    wife += seg(m.Ws, Math.min(m.Hd, m.Wd), 'var(--accent)', '본인 연금 (부부 함께)');
+    wife += seg(Math.max(m.Hd, m.Ws), m.Wd, 'var(--amber)', m.chu.postPick==='own' ? '본인 + 유족 30%' : '유족연금');
+    $('tl').innerHTML = `
+      <div class="tlrow"><span>남편</span><div class="track">${husband}</div></div>
+      <div class="tlrow"><span>아내</span><div class="track">${wife}</div></div>
+      <div class="axis"><span>${start}</span><span>${Math.round((start+end)/2)}</span><span>${end}</span></div>`;
+    $('tlSub').textContent = m.joint > 0
+      ? `두 분이 함께 연금을 받는 기간은 ${m.joint}년(${m.Ws}~${Math.min(m.Hd,m.Wd)}년), 아내 혼자 받는 기간은 ${Math.max(0, m.Wd-Math.max(m.Hd, start))}년입니다.`
+      : `남편이 아내의 연금 개시(${m.Ws}년) 전에 사망하는 가정이라, 함께 받는 기간이 없습니다.`;
+  }
+
+  function render(){
+    const p = read();
+    $('totbox').hidden = p.omode !== 'total';
+    $('owbox').hidden = p.omode !== 'wage';
+    Object.keys(NUM).forEach(k => $(k).classList.toggle('unset', $(k+'_n').value === ''));
+    if (p.missing.length){
+      ['hb_h','wb_h','hd_h','wl_h','ca_h'].forEach(id => $(id).textContent = '');
+      $('vb_note').textContent = '임의가입시 한번에 낼 보험료를 산정하기 위한 가상의 월 소득 기준액 입니다. 최저 금액은 100만원 입니다.';
+      $('cb_note').textContent = '추납시 한번에 낼 보험료를 산정하기 위한 가상의 월 소득 기준액 입니다. 최저 금액은 100만원 입니다.';
+      $('hCalc').innerHTML = '<span>출생연도, 납부 개월 수를 넣으면 유족연금 지급률이 계산됩니다.</span>';
+      $('pastCalc').innerHTML = '<span>납부 시작 연도, 개월 수, 납부총액(또는 월급)을 넣으면 현재가치 소득이 계산됩니다.</span>';
+      $('heroBig').textContent = '입력을 기다리는 중';
+      $('heroText').innerHTML = `왼쪽 칸을 모두 채우면 결과가 나옵니다. 남은 입력 ${p.missing.length}개: ${p.missing.join(', ')}`;
+      $('cards').innerHTML = '';
+      $('chart').innerHTML = '<text x="380" y="150" text-anchor="middle" font-size="14" fill="var(--muted)">값을 모두 입력하면 남편 사망 나이별 순이익이 그려집니다</text>';
+      $('tl').innerHTML = '';
+      $('tlSub').textContent = '값을 모두 입력하면 연금 타임라인이 나옵니다.';
+      return;
+    }
+    const hN = normalAge(p.hb), wN = normalAge(p.wb);
+    $('hb_h').textContent = '현재 ' + (2026 - p.hb) + '세 · 연금 ' + hN + '세(' + (p.hb + hN) + '년)부터';
+    $('wb_h').textContent = '현재 ' + (2026 - p.wb) + '세 · 정상 수령 ' + wN + '세 · 남편과 ' + Math.abs(p.wb - p.hb) + '살 차이';
+    $('hd_h').textContent = (p.hb+p.hd) + '년 사망' + (p.hd < hN ? ' · 연금 수령 전 사망' : '');
+    $('wl_h').textContent = (p.wb+p.wl) + '년까지';
+    $('ca_h').textContent = (p.wb+p.ca) + '년부터' + (p.ca<wN ? ' · ' + Math.round(Math.min(30,(wN-p.ca)*6)) + '% 감액' : p.ca>wN ? ' · ' + (Math.min(5,p.ca-wN)*7.2).toFixed(1) + '% 가산' : ' · 정상 수령');
+    const vm = volMonths(p.wb);
+    $('vb_note').textContent = vm > 0 ? '임의가입시 한번에 낼 보험료를 산정하기 위한 가상의 월 소득 기준액 입니다. 최저 금액은 100만원 입니다. 60세까지 ' + vm + '개월 납부로 계산' : '아내가 이미 60세 이상이라 임의가입 기간은 0개월로 계산';
+    ['hp','vb','cm','cb'].forEach(k => $(k+'_h').hidden = true);
+    $('om_h').textContent = '약 ' + (p.om/12).toFixed(1) + '년' + (p.om >= 120 ? ' · 이미 수급권 있음' : ' · 10년까지 ' + (120-p.om) + '개월 부족');
+
+    const m = model(p);
+    {
+      const yrs = n => (n/12).toFixed(1).replace(/\.0$/, '') + '년';
+      const maxM = (2026 - p.hs + 1) * 12;
+      $('hCalc').innerHTML =
+        `<span>사망 시 가입기간 ${p.hTotal}개월(${yrs(p.hTotal)})${p.hAdd ? ` · 지금까지 ${p.hm}개월 + 60세까지 ${p.hAdd}개월` : ''}</span>` +
+        `<b>유족연금 지급률 ${Math.round(p.srate*100)}%</b>` +
+        `<span>${p.hTotal < 120 ? '10년 미만 40%' : p.hTotal < 240 ? '10~20년 50%' : '20년 이상 60%'} · 유족연금 월 약 ${money(m.S)}</span>` +
+        (p.hm > maxM ? `<span class="neg">${p.hs}년부터라면 최대 ${maxM}개월입니다. 시작 연도나 개월 수를 확인하세요.</span>` : '');
+    }
+    $('cb_note').textContent = '추납시 한번에 낼 보험료를 산정하기 위한 가상의 월 소득 기준액 입니다. 최저 금액은 100만원 입니다. ' + p.cm + '개월분 약 ' + money(m.chuCost) + ' 납부로 계산';
+    $('totbox').hidden = p.omode !== 'total';
+    $('owbox').hidden = p.omode !== 'wage';
+    const pc = m.past;
+    $('pastCalc').innerHTML = (p.omode === 'total' ? `<span>당시 월급 추정: ${money(p.ot * (p.oshare==='self'?2:1))} ÷ ${p.om}개월 ÷ 보험료율 ${(p.rateSum/p.om*100).toFixed(1)}% = 월 약 ${money(p.wageEst)}</span>` : '') +
+        `<span>현재가치 환산 소득 (자동 계산)</span><b>약 ${money(m.Bpast)}</b><span>${p.os}~${pc.endYear}년 · 월 ${Math.round(p.ow).toLocaleString('ko-KR')}만 원 × 약 ${pc.mult.toFixed(2)}배${pc.capped ? ' · 당시 상한 적용' : ''} · 소득대체율 평균 ${(pc.repl*100).toFixed(1)}%</span>`;
+    const diff = m.chu.net - m.vol.net;
+    $('heroBig').textContent = signed(diff);
+    const be = breakeven(p,'chu');
+    const ownBeats = m.chu.Xe > m.threshold;
+    $('heroText').innerHTML =
+      `추납 비용 ${money(m.chuCost)}을 내면 아내 본인 연금이 월 ${money(m.vol.Xe)}에서 ${money(m.chu.Xe)}로 늘어납니다. ` +
+      (ownBeats
+        ? `본인 연금이 기준선(월 ${money(m.threshold)})을 넘어 남편 사후에도 본인 연금 + 유족연금 30%가 유리합니다.`
+        : `다만 남편 사후에는 유족연금(월 ${money(m.S)})을 고르게 되어 추납 효과가 사라집니다. 본인 연금이 월 ${money(m.threshold)}를 넘어야 사후에도 효과가 남습니다.`) +
+      (be ? ` 임의가입 + 추납 전체의 손익분기는 남편 약 ${be.toFixed(0)}세 사망입니다.` : ` 이 조건에서는 남편이 100세까지 살아도 손익분기에 닿지 않습니다.`);
+
+    $('cards').innerHTML =
+      card('아무것도 안 함', 'var(--amber)', m.none, m, 'none', false) +
+      card('임의가입만', 'var(--mid)', m.vol, m, 'vol', false) +
+      card('임의가입 + 추납', 'var(--accent)', m.chu, m, 'chu', true);
+
+    drawChart(p);
+    drawTimeline(p, m);
+  }
+
+  ['cy','omode','oshare'].forEach(k => $(k).addEventListener('input', render));
+  ['hcont'].forEach(k => $(k).addEventListener('change', render));
+  Object.keys(PLAIN).forEach(k => {
+    $(k).addEventListener('input', render);
+    $(k).addEventListener('change', render);
+  });
+  render();
+})();
+</script>
+</body>
+</html>
